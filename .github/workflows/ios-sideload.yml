@@ -63,9 +63,9 @@ jobs:
           # Remove existing iOS to ensure fresh Capacitor setup
           rm -rf ios
           npx cap add ios
-          # Verify Podfile was created
+          # Verify native project was created
           ls -la ios/App/
-          test -f ios/App/Podfile && echo "✅ Podfile created" || (echo "❌ Podfile missing"; exit 1)
+          test -d ios/App/App.xcodeproj && echo "✅ Xcode project created" || (echo "❌ Xcode project missing"; exit 1)
 
       - name: Sync Capacitor iOS
         run: npx cap sync ios
@@ -85,7 +85,7 @@ jobs:
         working-directory: ./ios/App
         run: |
           xcodebuild clean archive \
-            -workspace App.xcworkspace \
+            -project App.xcodeproj \
             -scheme "${{ env.SCHEME }}" \
             -configuration "${{ env.CONFIGURATION }}" \
             -archivePath "./build/App.xcarchive" \
