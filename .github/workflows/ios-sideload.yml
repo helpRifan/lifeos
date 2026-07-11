@@ -63,9 +63,9 @@ jobs:
           # Remove existing iOS to ensure fresh Capacitor setup
           rm -rf ios
           npx cap add ios
-          # Verify Podfile was created
+          # Verify iOS project was created
           ls -la ios/App/
-          test -f ios/App/Podfile && echo "✅ Podfile created" || (echo "❌ Podfile missing"; exit 1)
+          test -f ios/App/App.xcodeproj/project.pbxproj && echo "✅ iOS project created" || (echo "❌ iOS project missing"; exit 1)
 
       - name: Sync Capacitor iOS
         run: npx cap sync ios
@@ -84,8 +84,14 @@ jobs:
       - name: Build & Archive (Automatic Signing - Free Apple ID)
         working-directory: ./ios/App
         run: |
+          if [ -d "App.xcworkspace" ]; then
+            XCODE_CONTAINER=(-workspace App.xcworkspace)
+          else
+            XCODE_CONTAINER=(-project App.xcodeproj)
+          fi
+
           xcodebuild clean archive \
-            -workspace App.xcworkspace \
+            "${XCODE_CONTAINER[@]}" \
             -scheme "${{ env.SCHEME }}" \
             -configuration "${{ env.CONFIGURATION }}" \
             -archivePath "./build/App.xcarchive" \
