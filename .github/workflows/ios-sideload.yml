@@ -23,7 +23,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 45
     env:
-      NODE_VERSION: '20'
+      NODE_VERSION: '22'
       APP_BUNDLE_ID: 'com.lifeos.app'
       SCHEME: 'App'
       CONFIGURATION: 'Release'
