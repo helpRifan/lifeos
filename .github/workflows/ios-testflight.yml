@@ -2,42 +2,41 @@ name: iOS Build & Deploy to TestFlight
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'app/**'
+    tags:
+      - 'ios-v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 1.0.0)'
+        description: 'Version tag (e.g., ios-v1.0.0)'
         required: true
         type: string
-      build_number:
-        description: 'Build number (increment each release)'
-        required: true
+      changelog:
+        description: 'Changelog for TestFlight'
+        required: false
         type: string
+
+env:
+  NODE_VERSION: '20'
+  APP_ID: 'com.lifeos.app'
+  SCHEME: 'App'
+  CONFIGURATION: 'Release'
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build-ios:
-    name: Build iOS & Upload to TestFlight
-    runs-on: macos-latest
+    name: Build iOS App
+    runs-on: macos-14
     timeout-minutes: 60
-    env:
-      NODE_VERSION: '22'
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-      ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      GIT_AUTHORIZATION: ${{ secrets.GIT_AUTHORIZATION }}
+    outputs:
+      ipa_path: ${{ steps.upload-ipa.outputs.ipa_path }}
+      build_version: ${{ steps.set-version.outputs.build_version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -46,121 +45,115 @@ jobs:
           cache: 'npm'
           cache-dependency-path: app/package-lock.json
 
-      - name: Install npm dependencies
+      - name: Install dependencies
         working-directory: ./app
         run: npm ci
 
-      - name: Build web assets
+      - name: Build Web App
         working-directory: ./app
         run: npm run build
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods -N
+        run: sudo gem install cocoapods -v 1.15.2
 
-      - name: Add iOS platform (if needed)
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          cache-version: 1
+          working-directory: ./app/ios/App
+
+      - name: Add iOS Platform (Capacitor)
         working-directory: ./app
-        run: |
-          if [ ! -d "ios" ]; then
-            npx cap add ios
-          fi
+        run: npx cap add ios
 
-      - name: Sync Capacitor iOS
+      - name: Sync Capacitor
         working-directory: ./app
         run: npx cap sync ios
 
-      - name: Setup Fastlane
+      - name: Set Build Version
+        id: set-version
+        working-directory: ./app/ios/App
+        run: |
+          BUILD_NUMBER="${GITHUB_REF_NAME#ios-v}"
+          BUILD_NUMBER="${BUILD_NUMBER:-${GITHUB_RUN_NUMBER}}"
+          echo "build_version=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "Setting build number to $BUILD_NUMBER"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $BUILD_NUMBER" App/Info.plist
+
+      - name: Configure Code Signing
+        run: |
+          echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 -d > /tmp/certificate.p12
+          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security import /tmp/certificate.p12 -k build.keychain -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          rm /tmp/certificate.p12
+
+      - name: Set Up Provisioning Profile
+        run: |
+          echo "${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Build and Archive
+        working-directory: ./app/ios/App
+        run: |
+          xcodebuild clean archive \
+            -scheme "${{ env.SCHEME }}" \
+            -configuration "${{ env.CONFIGURATION }}" \
+            -archivePath "./build/App.xcarchive" \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.IOS_PROVISION_PROFILE_NAME }}" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
+
+      - name: Export IPA
+        working-directory: ./app/ios/App
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "./build/App.xcarchive" \
+            -exportPath "./build/export" \
+            -exportOptionsPlist "./ExportOptions.plist"
+
+      - name: Upload IPA Artifact
+        id: upload-ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: ./app/ios/App/build/export/App.ipa
+          retention-days: 30
+
+  upload-testflight:
+    name: Upload to TestFlight
+    needs: build-ios
+    runs-on: macos-14
+    timeout-minutes: 30
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Download IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-app
+          path: ./build
+
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
           bundler-cache: true
           working-directory: ./app/ios/App
 
-      - name: Create Fastlane Gemfile
-        working-directory: ./app/ios/App
-        run: |
-          cat > Gemfile << 'EOF'
-          source "https://rubygems.org"
-
-          gem "fastlane"
-          gem "cocoapods"
-          EOF
-
-      - name: Install Fastlane gems
+      - name: Install Fastlane
         working-directory: ./app/ios/App
         run: bundle install
 
-      - name: Setup App Store Connect API Key
-        run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "${ASC_API_KEY_BASE64}" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
-          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
-
-          cat > ~/.appstoreconnect/private_keys/key.json << EOF
-          {
-            "key_id": "${ASC_API_KEY_ID}",
-            "issuer_id": "${ASC_API_ISSUER_ID}",
-            "key_path": "~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
-          }
-          EOF
-
-      - name: Configure Fastlane Match (optional - for certificates)
-        if: env.MATCH_PASSWORD != ''
-        run: |
-          fastlane match appstore --readonly --git_basic_authorization $GIT_AUTHORIZATION || echo "Match failed, using auto-signing"
-
-      - name: Increment build number
-        working-directory: ./app/ios/App
-        run: |
-          VERSION="${{ github.event.inputs.version || '1.0.0' }}"
-          BUILD_NUMBER="${{ github.event.inputs.build_number || github.run_number }}"
-
-          # Update Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" App/App/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/App/Info.plist
-
-          # Also update xcodeproj
-          xcrun agvtool new-marketing-version $VERSION
-          xcrun agvtool new-version -all $BUILD_NUMBER
-
-      - name: Build and Archive iOS App
-        working-directory: ./app/ios/App
-        run: |
-          # Build with automatic signing
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -destination generic/platform=iOS \
-            -archivePath ./build/App.xcarchive \
-            clean archive \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}"
-
-      - name: Export IPA
-        working-directory: ./app/ios/App
-        run: |
-          xcodebuild -exportArchive \
-            -archivePath ./build/App.xcarchive \
-            -exportPath ./build/export \
-            -exportOptionsPlist ExportOptions.plist
-
-      - name: Upload to TestFlight via Fastlane
+      - name: Upload to TestFlight
         working-directory: ./app/ios/App
         env:
-          FASTLANE_USER: ${{ secrets.APPLE_ID }}
-          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         run: |
-          bundle exec fastlane pilot upload \
-            --ipa ./build/export/App.ipa \
-            --api_key_path ~/.appstoreconnect/private_keys/key.json \
-            --skip_wait_for_build_processing true \
-            --changelog "Build ${{ github.run_number }} from GitHub Actions"
-
-      - name: Notify on failure
-        if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          channel: '#deployments'
-          fields: repo,message,commit,author,action,eventName,ref,workflow
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          bundle exec fastlane upload_testflight ipa:"./build/App.ipa" changelog:"${{ github.event.inputs.changelog || 'Build from GitHub Actions' }}"
