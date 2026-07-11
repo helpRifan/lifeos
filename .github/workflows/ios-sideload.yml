@@ -63,6 +63,9 @@ jobs:
           # Remove existing iOS to ensure fresh Capacitor setup
           rm -rf ios
           npx cap add ios
+          # Verify Podfile was created
+          ls -la ios/App/
+          test -f ios/App/Podfile && echo "✅ Podfile created" || (echo "❌ Podfile missing"; exit 1)
 
       - name: Sync Capacitor iOS
         run: npx cap sync ios
