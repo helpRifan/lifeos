@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+/* ===== Life OS — Elegant Dark Design Tokens ===== */
+
+@theme {
+  /* --- Base Surfaces --- */
+  --color-background: #0D0D0F;
+  --color-surface: #0D0D0F;
+  --color-surface-container: #141418;
+  --color-surface-container-high: #1A1A1F;
+  --color-surface-container-highest: #222228;
+  --color-surface-variant: #1E1E24;
+
+  /* --- Text --- */
+  --color-on-background: #F0EEE9;
+  --color-on-surface: #F0EEE9;
+  --color-on-surface-variant: #7A7880;
+
+  /* --- Gold Accent --- */
+  --color-primary: #C9A84C;
+  --color-primary-container: #3D3117;
+  --color-on-primary: #1A1400;
+  --color-on-primary-container: #F5E6B8;
+  --color-primary-fixed: #F5E6B8;
+  --color-primary-fixed-dim: #C9A84C;
+
+  /* --- Secondary (muted gold) --- */
+  --color-secondary: #B8A472;
+  --color-secondary-container: #3A3120;
+  --color-on-secondary: #2C2410;
+  --color-on-secondary-container: #E8D9A8;
+
+  /* --- Tertiary (warm amber) --- */
+  --color-tertiary: #D4A853;
+  --color-tertiary-container: #3D3117;
+  --color-on-tertiary: #2B1F00;
+  --color-on-tertiary-container: #FFE0A0;
+
+  /* --- Error --- */
+  --color-error: #FF6B6B;
+  --color-error-container: #3D1515;
+  --color-on-error: #1A0505;
+
+  /* --- Borders & Outlines --- */
+  --color-outline: #3A3A42;
+  --color-outline-variant: #1E1E24;
+
+  /* --- Inverse & Tint --- */
+  --color-inverse-surface: #F0EEE9;
+  --color-surface-tint: #C9A84C;
+
+  /* --- Typography --- */
+  --font-headline: "Cormorant Garamond", serif;
+  --font-body: "DM Sans", sans-serif;
+
+  /* --- Spacing --- */
+  --spacing-gutter: 1rem;
+  --spacing-section-gap: 2rem;
+  --spacing-container-margin: 1.25rem;
+  --spacing-stack-gap: 0.5rem;
+
+  /* --- Border Radius --- */
+  --radius-sm: 0.5rem;
+  --radius-DEFAULT: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-full: 9999px;
+}
+
+/* ===== Base Styles ===== */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: 300;
+  background-color: var(--color-background);
+  color: var(--color-on-background);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+::selection {
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+/* ===== Material Symbols ===== */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+}
+.material-symbols-outlined.filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ===== Safe area ===== */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== Scrollbar ===== */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== Elegant Card ===== */
+.card-elegant {
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 16px;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.card-elegant:hover {
+  box-shadow: inset 0 0 0 1px rgba(201, 168, 76, 0.15);
+  transform: scale(1.01);
+}
+
+/* ===== Gold Progress Bar ===== */
+.progress-gold {
+  background: linear-gradient(90deg, #C9A84C 0%, #D4B85C 100%);
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.35);
+  border-radius: 9999px;
+}
+
+.progress-track {
+  background: #1E1E24;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+/* ===== Gold Checkbox ===== */
+.checkbox-gold {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #3A3A42;
+  border-radius: 5px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+.checkbox-gold.checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+.checkbox-gold .check-icon {
+  color: #0D0D0F;
+  font-size: 16px;
+  transform: scale(0);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.checkbox-gold.checked .check-icon {
+  transform: scale(1);
+}
+
+/* ===== Input Styling ===== */
+input[type="text"],
+input[type="number"],
+textarea {
+  caret-color: var(--color-primary);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--color-primary);
+}
+
+/* ===== Placeholder ===== */
+::placeholder {
+  color: rgba(122, 120, 128, 0.5);
+}
+
+/* ===== Button Active Feedback ===== */
+.btn-press {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.btn-press:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}

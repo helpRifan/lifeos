@@ -1,0 +1,35 @@
+{
+	"appId": "com.lifeos.app",
+	"appName": "LifeOS",
+	"webDir": "dist",
+	"plugins": {
+		"LocalNotifications": {
+			"smallIcon": "ic_stat_icon_config_sample",
+			"iconColor": "#C9A84C",
+			"sound": "beep.wav"
+		},
+		"SplashScreen": {
+			"launchShowDuration": 2000,
+			"launchAutoHide": true,
+			"backgroundColor": "#0b1326",
+			"androidSplashResourceName": "splash",
+			"androidScaleType": "CENTER_CROP",
+			"showSpinner": false
+		},
+		"StatusBar": {
+			"style": "DARK",
+			"backgroundColor": "#0b1326"
+		}
+	},
+	"ios": {
+		"scheme": "LifeOS",
+		"contentInset": "automatic",
+		"scrollEnabled": true,
+		"backgroundColor": "#0b1326"
+	},
+	"packageClassList": [
+		"LocalNotificationsPlugin",
+		"SplashScreenPlugin",
+		"StatusBarPlugin"
+	]
+}

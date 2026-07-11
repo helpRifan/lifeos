@@ -1,0 +1,110 @@
+.curved-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 80px;
+  pointer-events: none;
+}
+
+/* Frosted glass backdrop behind the SVG shape */
+.curved-bottom-nav__glass {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 65px;
+  background: rgba(13, 13, 15, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  pointer-events: none;
+}
+
+/* SVG sits on top of the glass, clips the notch shape */
+.curved-bottom-nav__bg {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 80px;
+  pointer-events: none;
+  filter: drop-shadow(0 -4px 12px rgba(0, 0, 0, 0.5));
+}
+
+/* Tabs — fully transparent, positioned over both layers */
+.curved-bottom-nav__tabs {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  pointer-events: auto;
+  /* NO background — the SVG path is the visual background */
+}
+
+.curved-bottom-nav__tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+}
+
+.curved-bottom-nav__tab--active {
+  pointer-events: auto;
+}
+
+/* Gold floating bubble for active tab */
+.curved-bottom-nav__bubble {
+  position: absolute;
+  top: -20px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #D4B85C 0%, #C9A84C 50%, #B8972E 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0D0D0F;
+  box-shadow:
+    0 4px 20px rgba(201, 168, 76, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Inactive tab styling */
+.curved-bottom-nav__inactive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: #7A7880;
+  transition: color 0.2s;
+  padding-top: 2px;
+}
+
+.curved-bottom-nav__tab:active .curved-bottom-nav__inactive {
+  transform: scale(0.92);
+  transition: transform 0.1s;
+}
+
+.curved-bottom-nav__label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
