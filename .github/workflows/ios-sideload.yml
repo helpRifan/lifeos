@@ -39,14 +39,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install npm dependencies
-        working-directory: ./app
+        working-directory: ./
         run: npm ci
 
       - name: Build web assets
-        working-directory: ./app
+        working-directory: ./
         run: npm run build
 
       - name: Install CocoaPods
@@ -58,32 +58,32 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
           cache-version: 1
-          working-directory: ./app/ios/App
+          working-directory: ./ios/App
 
       - name: Add iOS Platform (Capacitor)
-        working-directory: ./app
+        working-directory: ./
         run: |
           if [ ! -d "ios" ]; then
             npx cap add ios
           fi
 
       - name: Sync Capacitor iOS
-        working-directory: ./app
+        working-directory: ./
         run: npx cap sync ios
 
       - name: Update Version & Build Number
-        working-directory: ./app/ios/App
+        working-directory: ./ios/App
         run: |
           VERSION="${{ github.event.inputs.version }}"
           BUILD="${{ github.event.inputs.build_number }}"
           echo "Setting version: $VERSION, build: $BUILD"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" App/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" App/App/Info.plist
           xcrun agvtool new-marketing-version $VERSION
           xcrun agvtool new-version -all $BUILD
 
       - name: Build & Archive (Automatic Signing - Free Apple ID)
-        working-directory: ./app/ios/App
+        working-directory: ./ios/App
         run: |
           # Build with automatic signing (uses free Apple ID if configured in Xcode)
           # For CI, we use "Automatic" signing style which works with free Apple ID
@@ -98,7 +98,7 @@ jobs:
             2>&1 | tee build.log
 
       - name: Export IPA for Ad Hoc / Development
-        working-directory: ./app/ios/App
+        working-directory: ./ios/App
         run: |
           cat > ExportOptions.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -112,13 +112,13 @@ jobs:
               <key>method</key>
               <string>development</string>
               <key>signingStyle</key>
-              <string>automatic</key>
+              <string>automatic</string>
               <key>stripSwiftSymbols</key>
               <true/>
               <key>teamID</key>
               <string></string>
               <key>thinning</key>
-              <string><none></string>
+              <string>&lt;none&gt;</string>
           </dict>
           </plist>
           EOF
@@ -130,7 +130,7 @@ jobs:
             2>&1 | tee export.log
 
       - name: Verify IPA Exists
-        working-directory: ./app/ios/App
+        working-directory: ./ios/App
         run: |
           ls -la ./build/export/
           test -f ./build/export/App.ipa && echo "✅ IPA found" || (echo "❌ IPA not found"; exit 1)
@@ -139,7 +139,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lifeos-ipa
-          path: ./app/ios/App/build/export/App.ipa
+          path: ./ios/App/build/export/App.ipa
           retention-days: 30
           compression-level: 0
 
