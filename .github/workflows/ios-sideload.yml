@@ -1,0 +1,161 @@
+name: Build iOS IPA for Sideloading (Free)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+        type: string
+      build_number:
+        description: 'Build number (increment each build)'
+        required: true
+        default: '1'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-ipa:
+    name: Build IPA for Personal Install
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      NODE_VERSION: '20'
+      APP_BUNDLE_ID: 'com.lifeos.app'
+      SCHEME: 'App'
+      CONFIGURATION: 'Release'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install npm dependencies
+        working-directory: ./app
+        run: npm ci
+
+      - name: Build web assets
+        working-directory: ./app
+        run: npm run build
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods -v 1.15.2
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          cache-version: 1
+          working-directory: ./app/ios/App
+
+      - name: Add iOS Platform (Capacitor)
+        working-directory: ./app
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+
+      - name: Sync Capacitor iOS
+        working-directory: ./app
+        run: npx cap sync ios
+
+      - name: Update Version & Build Number
+        working-directory: ./app/ios/App
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          BUILD="${{ github.event.inputs.build_number }}"
+          echo "Setting version: $VERSION, build: $BUILD"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" App/Info.plist
+          xcrun agvtool new-marketing-version $VERSION
+          xcrun agvtool new-version -all $BUILD
+
+      - name: Build & Archive (Automatic Signing - Free Apple ID)
+        working-directory: ./app/ios/App
+        run: |
+          # Build with automatic signing (uses free Apple ID if configured in Xcode)
+          # For CI, we use "Automatic" signing style which works with free Apple ID
+          xcodebuild clean archive \
+            -workspace App.xcworkspace \
+            -scheme "${{ env.SCHEME }}" \
+            -configuration "${{ env.CONFIGURATION }}" \
+            -archivePath "./build/App.xcarchive" \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="" \
+            2>&1 | tee build.log
+
+      - name: Export IPA for Ad Hoc / Development
+        working-directory: ./app/ios/App
+        run: |
+          cat > ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>compileBitcode</key>
+              <false/>
+              <key>destination</key>
+              <string>export</string>
+              <key>method</key>
+              <string>development</string>
+              <key>signingStyle</key>
+              <string>automatic</key>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>teamID</key>
+              <string></string>
+              <key>thinning</key>
+              <string><none></string>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath "./build/App.xcarchive" \
+            -exportPath "./build/export" \
+            -exportOptionsPlist ExportOptions.plist \
+            2>&1 | tee export.log
+
+      - name: Verify IPA Exists
+        working-directory: ./app/ios/App
+        run: |
+          ls -la ./build/export/
+          test -f ./build/export/App.ipa && echo "✅ IPA found" || (echo "❌ IPA not found"; exit 1)
+
+      - name: Upload IPA as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifeos-ipa
+          path: ./app/ios/App/build/export/App.ipa
+          retention-days: 30
+          compression-level: 0
+
+      - name: Show Download Instructions
+        run: |
+          echo "=========================================="
+          echo "✅ BUILD COMPLETE!"
+          echo "=========================================="
+          echo ""
+          echo "📱 Download IPA:"
+          echo "   1. Go to this workflow run in GitHub Actions"
+          echo "   2. Scroll down to 'Artifacts' section"
+          echo "   3. Click 'lifeos-ipa' to download"
+          echo ""
+          echo "📲 Install on iPhone:"
+          echo "   - Use AltStore (Windows) or Sideloadly (Windows/Mac)"
+          echo "   - Drag & drop the .ipa file"
+          echo "   - App works for 7 days, then re-run this workflow"
+          echo "=========================================="
