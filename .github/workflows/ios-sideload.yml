@@ -62,7 +62,8 @@ jobs:
         run: |
           # Remove existing iOS to ensure fresh Capacitor setup
           rm -rf ios
-          npx cap add ios
+          # Force CocoaPods (not SPM) for compatibility with existing workflow
+          npx cap add ios --package-manager=cocoapods
           # Verify Podfile was created
           ls -la ios/App/
           test -f ios/App/Podfile && echo "✅ Podfile created" || (echo "❌ Podfile missing"; exit 1)
